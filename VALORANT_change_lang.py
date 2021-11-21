@@ -2,23 +2,29 @@ import os
 import ctypes
 import string
 import sys
+import requests
+import time
 from ctypes import windll, wintypes
 from uuid import UUID
-import requests
 from shutil import copy2
+
 
 def printHeader():
     print("=========================================")
-    print("This script changes your VALORANT display")
-    print("language into English while keeping audio")
-    print("language as Korean.")
+    print("VALORANT Restore English Text")
+    print("By: FocusedSG")
     print("")
-    print("Remember to set your game language to")
-    print("Korean and download the update before")
-    print("running this script.")
+    print("This script changes your VALORANT text")
+    print("language into English while keeping audio")
+    print("language as your current language.")
+    print("")
+    print("Remember to set your game language first")
+    print("and download the update before running")
+    print("script.")
     print("")
     print("Press ENTER to continue")
     print("=========================================")
+    input() # Press ENTER to continue
 
 # ctypes GUID copied from MSDN sample code
 class GUID(ctypes.Structure):
@@ -51,8 +57,8 @@ def getDownloadsPath():
     return pathptr.value
 
 def downloadFile(url: str, destPath: str):
-    if not os.path.isdir(path): # Check if the directory exist
-        os.mkdir(path) # Create path is the directory does not exist
+    if not os.path.isdir(destPath): # Check if the directory exist
+        os.mkdir(destPath) # Create path is the directory does not exist
 
     fileName = url.split('/')[-1].replace(" ", "_")  # Be careful with file names
     filePath = os.path.join(destPath, fileName)
@@ -86,29 +92,63 @@ def isAdmin():
         isAdmin = ctypes.windll.shell32.IsUserAnAdmin() != 0
     return isAdmin
 
-if not isAdmin(): # Checking if program has administrator permission
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-    exit()
+def findFile(name, path):
+    for root, dir, files in os.walk(path):
+        if name in files:
+            return os.path.join(root, name)
 
-printHeader() # Print instructions
-input() # Press ENTER to continue
-downloadsPath = getDownloadsPath() # Get downloads folder
-path = os.path.join(downloadsPath, "VALORANT_change_lang") # Get downloads location to store the language files
-downloadFile("https://github.com/FocusedSG/VALORANT_Lang/releases/download/Release/ko_KR_Text-WindowsClient.pak", destPath=path)
-downloadFile("https://github.com/FocusedSG/VALORANT_Lang/releases/download/Release/ko_KR_Text-WindowsClient.sig", destPath=path)
-fileName = "ko_KR_Text-WindowsClient"
-drives = getDrives() # Get drives and store them in an array
-valorantPath = "Riot Games\\VALORANT\\live\\ShooterGame\\Content\\Paks"
-foundValorant = False
-for drive in drives: # Search for VALORANT installation folder
-    if os.path.isdir(drive + ":\\" + valorantPath):
-        foundValorant = True
-        print("\nDetected VALORANT installation path:", "\"" + drive + ":\\Riot Games\\VALORANT\"\n")
-        copy2(path + "\\" + fileName + ".pak", drive + ":\\" + valorantPath)
-        copy2(path + "\\" + fileName + ".sig", drive + ":\\" + valorantPath)
-if foundValorant:
-    print("All done! Remember to run this script before starting VALORANT everytime!")
-else:
-    print("ERROR: No VALORANT installation found.")
-print("\nPress ENTER to quit.")
-input()
+def getLanguage(drive):
+    languages = ["ja_JP", "ko_KR", "pt_BR", "it_IT", "de_DE", "fr_FR", "en_US"] # Supported languages
+    foundLanguage = False
+    for language in languages:
+        lang = findFile(language + "_Audio-WindowsClient.pak", drive + ":\\Riot Games\\VALORANT\\live\\ShooterGame\\Content\\Paks")
+        if lang is not None:
+            foundLanguage = True
+            return language
+    if not foundLanguage:
+        return None
+
+def main():
+    fileName = "_Text-WindowsClient"
+    valorantPath = ":\\Riot Games\\VALORANT\\live\\ShooterGame\\Content\\Paks"
+    if not isAdmin(): # Checking if program has administrator permission
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        exit()
+    printHeader() # Print header and instructions
+    downloadsPath = getDownloadsPath() # Get downloads folder
+    path = os.path.join(downloadsPath, "VALORANT_change_lang") # Get downloads location to store the language files
+    startTime = round(time.time() * 1000)
+    print("Downloading language files...")
+    downloadFile("https://github.com/FocusedSG/VALORANT-Restore-English-Text/releases/download/Release/en_US_Text-WindowsClient.pak", destPath=path)
+    downloadFile("https://github.com/FocusedSG/VALORANT-Restore-English-Text/releases/download/Release/en_US_Text-WindowsClient.sig", destPath=path)
+    timeTaken = round(time.time() * 1000) - startTime
+    print("Downloaded 2 language files. Took", str(timeTaken) + "ms.\n")
+
+    drives = getDrives() # Get drives and store them in an array
+    valorantDrive = ""
+    for drive in drives: # Search for VALORANT installation folder
+        if os.path.isdir(drive + valorantPath):
+            valorantDrive = drive
+            print("Detected VALORANT installation path:", "\"" + drive + ":\\Riot Games\\VALORANT\"\n")
+
+    if valorantDrive != "":
+        valorantPath = valorantDrive + valorantPath # Setting absolute path to VALORANT installation
+        language = getLanguage(valorantDrive) # Getting VALORANT language
+        if language is not None:
+            startTime = round(time.time() * 1000)
+            print("Copying language files to VALORANT installation directory...")
+            os.rename(path + "\\" + "en_US" + fileName + ".pak", path + "\\" + language + fileName + ".pak")
+            os.rename(path + "\\" + "en_US" + fileName + ".sig", path + "\\" + language + fileName + ".sig")
+            copy2(path + "\\" + language + fileName + ".pak", valorantPath)
+            copy2(path + "\\" + language + fileName + ".sig", valorantPath)
+            timeTaken = round(time.time() * 1000) - startTime
+            print("Done copying files! Took", str(timeTaken) + "ms.\n")
+            print("Remember to run this script before starting VALORANT everytime!")
+        else:
+            print("Sorry, the audio language of your VALORANT is not currently supported.")
+    else:
+        print("ERROR: No VALORANT installation found.")
+    print("\nPress ENTER to quit.")
+    input()
+
+main()
