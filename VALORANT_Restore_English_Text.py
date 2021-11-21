@@ -143,6 +143,12 @@ def main():
             copy2(path + "\\" + language + fileName + ".sig", valorantPath)
             timeTaken = round(time.time() * 1000) - startTime
             print("Done copying files! Took", str(timeTaken) + "ms.\n")
+            startTime = round(time.time() * 1000)
+            print("Deleting language files...")
+            os.remove(path + "\\" + language + fileName + ".pak")
+            os.remove(path + "\\" + language + fileName + ".sig")
+            timeTaken = round(time.time() * 1000) - startTime
+            print("Deleted language files! Took", str(timeTaken) + "ms.\n")
             print("Remember to run this script before starting VALORANT everytime!")
         else:
             print("Sorry, the audio language of your VALORANT is not currently supported.")
